@@ -85,14 +85,11 @@ func (service *Service) Manage() (string, error) {
 			stdlog.Println("Stoping listening on ", listener.Addr())
 			listener.Close()
 			if killSignal == os.Interrupt {
-				return "Daemon was interruped by system signal", nil
+				return "Daemon was interrupted by system signal", nil
 			}
 			return "Daemon was killed", nil
 		}
 	}
-
-	// never happen, but need to complete code
-	return usage, nil
 }
 
 // Accept a client connection and collect it in a channel
@@ -123,7 +120,7 @@ func init() {
 }
 
 func main() {
-	srv, err := daemon.New(name, description, dependencies...)
+	srv, err := daemon.New(name, description, daemon.SystemDaemon, dependencies...)
 	if err != nil {
 		errlog.Println("Error: ", err)
 		os.Exit(1)

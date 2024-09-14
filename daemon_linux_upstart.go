@@ -1,4 +1,4 @@
-// Copyright 2016 The Go Authors. All rights reserved.
+// Copyright 2020 The Go Authors. All rights reserved.
 // Use of this source code is governed by
 // license that can be found in the LICENSE file.
 
@@ -16,6 +16,7 @@ import (
 type upstartRecord struct {
 	name         string
 	description  string
+	kind         Kind
 	dependencies []string
 }
 
@@ -170,12 +171,30 @@ func (linux *upstartRecord) Status() (string, error) {
 	}
 
 	if !linux.isInstalled() {
-		return "Status could not defined", ErrNotInstalled
+		return statNotInstalled, ErrNotInstalled
 	}
 
 	statusAction, _ := linux.checkRunning()
 
 	return statusAction, nil
+}
+
+// Run - Run service
+func (linux *upstartRecord) Run(e Executable) (string, error) {
+	runAction := "Running " + linux.description + ":"
+	e.Run()
+	return runAction + " completed.", nil
+}
+
+// GetTemplate - gets service config template
+func (linux *upstartRecord) GetTemplate() string {
+	return upstatConfig
+}
+
+// SetTemplate - sets service config template
+func (linux *upstartRecord) SetTemplate(tplStr string) error {
+	upstatConfig = tplStr
+	return nil
 }
 
 var upstatConfig = `# {{.Name}} {{.Description}}
@@ -186,6 +205,7 @@ author          "Pichu Chen <pichu@tih.tw>"
 start on runlevel [2345]
 stop on runlevel [016]
 
+respawn
 #kill timeout 5
 
 exec {{.Path}} {{.Args}} >> /var/log/{{.Name}}.log 2>> /var/log/{{.Name}}.err

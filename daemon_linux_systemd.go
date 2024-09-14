@@ -1,4 +1,4 @@
-// Copyright 2016 The Go Authors. All rights reserved.
+// Copyright 2020 The Go Authors. All rights reserved.
 // Use of this source code is governed by
 // license that can be found in the LICENSE file.
 
@@ -16,6 +16,7 @@ import (
 type systemDRecord struct {
 	name         string
 	description  string
+	kind         Kind
 	dependencies []string
 }
 
@@ -81,16 +82,16 @@ func (linux *systemDRecord) Install(args ...string) (string, error) {
 		return installAction + failed, err
 	}
 
-	path := append([]string{execPatch}, args...)
 	if err := templ.Execute(
 		file,
 		&struct {
-			Name, Description, Dependencies, Path string
+			Name, Description, Dependencies, Path, Args string
 		}{
 			linux.name,
 			linux.description,
 			strings.Join(linux.dependencies, " "),
-			strings.Join(path, " "),
+			execPatch,
+			strings.Join(args, " "),
 		},
 	); err != nil {
 		return installAction + failed, err
@@ -184,12 +185,30 @@ func (linux *systemDRecord) Status() (string, error) {
 	}
 
 	if !linux.isInstalled() {
-		return "Status could not defined", ErrNotInstalled
+		return statNotInstalled, ErrNotInstalled
 	}
 
 	statusAction, _ := linux.checkRunning()
 
 	return statusAction, nil
+}
+
+// Run - Run service
+func (linux *systemDRecord) Run(e Executable) (string, error) {
+	runAction := "Running " + linux.description + ":"
+	e.Run()
+	return runAction + " completed.", nil
+}
+
+// GetTemplate - gets service config template
+func (linux *systemDRecord) GetTemplate() string {
+	return systemDConfig
+}
+
+// SetTemplate - sets service config template
+func (linux *systemDRecord) SetTemplate(tplStr string) error {
+	systemDConfig = tplStr
+	return nil
 }
 
 var systemDConfig = `[Unit]
@@ -200,8 +219,8 @@ After={{.Dependencies}}
 [Service]
 PIDFile=/var/run/{{.Name}}.pid
 ExecStartPre=/bin/rm -f /var/run/{{.Name}}.pid
-ExecStart={{.Path}}
-Restart=on-abort
+ExecStart={{.Path}} {{.Args}}
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
